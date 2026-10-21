@@ -47,8 +47,9 @@ so a downloaded one has to be cleared once: `xattr -d com.apple.quarantine homen
 ## Quick start
 
 ```sh
-# 1. Trust your homenet root CA (public certificate only). Compare the printed
-#    fingerprint with the one shown when you created the CA:
+# 1. Only if this machine doesn't already trust your homenet root CA (keychain,
+#    update-ca-certificates), or you'd rather trust it for this app alone. Public
+#    certificate only; compare the printed fingerprint with the CA's:
 homenet-bridge trust add ~/.local/share/homelab-ca/homelab-root-ca.crt
 
 # 2. Describe the services you're willing to share (or pass --config):

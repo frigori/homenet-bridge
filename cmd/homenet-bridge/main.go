@@ -108,7 +108,7 @@ func cmdShare(args []string, checkOnly bool) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Trusting system roots + %d homenet root(s).\n", added)
+	fmt.Printf("Trusting the system roots + %d extra root(s).\n", added)
 
 	info, err := probe(svc, roots)
 	if err != nil {
