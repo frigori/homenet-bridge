@@ -114,7 +114,7 @@ func cmdShare(args []string, checkOnly bool) error {
 	if err != nil {
 		hint := "Check that the VPN (Twingate, Tailscale) is connected."
 		if added == 0 {
-			hint += "\nNo homenet root CA is trusted yet: add yours with \"homenet-bridge trust add <root-ca.crt>\"."
+			hint += "\nIf this machine does not trust your homenet root CA, add it with \"homenet-bridge trust add <root-ca.crt>\"."
 		}
 		return fmt.Errorf("%s is not reachable from this machine: %w\n%s", upURL.Host, err, hint)
 	}
