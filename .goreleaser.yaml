@@ -1,0 +1,49 @@
+version: 2
+
+project_name: homenet-bridge
+
+builds:
+  - main: ./cmd/homenet-bridge
+    env: [CGO_ENABLED=0]
+    goos: [darwin, linux, windows]
+    goarch: [amd64, arm64]
+    ignore:
+      - { goos: windows, goarch: arm64 }
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+    flags: [-trimpath]
+
+archives:
+  - formats: [tar.gz]
+    format_overrides:
+      - { goos: windows, formats: [zip] }
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files: [README.md, LICENSE, config.example.json]
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  sort: asc
+  filters:
+    exclude: ["^docs:", "^test:", "^ci:"]
+
+homebrew_casks:
+  - name: homenet-bridge
+    repository:
+      owner: frigori
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    homepage: https://github.com/frigori/homenet-bridge
+    description: Share a homenet service with LAN devices through this machine's VPN
+    license: MIT
+    commit_author:
+      name: goreleaserbot
+      email: bot@goreleaser.com
+    # The binary is not notarized: without this, Gatekeeper refuses to run it.
+    hooks:
+      post:
+        install: |
+          if system_command("/usr/bin/xattr", args: ["-h"]).exit_status == 0
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/homenet-bridge"]
+          end

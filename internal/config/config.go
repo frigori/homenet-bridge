@@ -35,13 +35,21 @@ type Config struct {
 	Services []Service `json:"services"`
 }
 
-// DefaultPath is <user config dir>/homenet-bridge/config.json.
-func DefaultPath() string {
+// Dir is <user config dir>/homenet-bridge. Root CAs (*.pem, *.crt) placed here are trusted.
+func Dir() string {
 	dir, err := os.UserConfigDir()
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(dir, "homenet-bridge", "config.json")
+	return filepath.Join(dir, "homenet-bridge")
+}
+
+// DefaultPath is <Dir>/config.json.
+func DefaultPath() string {
+	if Dir() == "" {
+		return ""
+	}
+	return filepath.Join(Dir(), "config.json")
 }
 
 // Load reads path. With path empty it reads DefaultPath and treats a missing file as an

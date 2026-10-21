@@ -36,6 +36,7 @@ const usage = `homenet-bridge shares a homenet service with devices on this loca
 Usage:
   homenet-bridge share [flags] [service]   start a time-limited sharing session
   homenet-bridge check [flags] [service]   only check that the upstream is reachable
+  homenet-bridge trust add <root-ca.crt>   trust your homenet's root CA (public certificate)
   homenet-bridge version
 
 Run "homenet-bridge share -h" for the flags.
@@ -53,6 +54,8 @@ func main() {
 		err = cmdShare(os.Args[2:], false)
 	case "check":
 		err = cmdShare(os.Args[2:], true)
+	case "trust":
+		err = cmdTrust(os.Args[2:])
 	case "version":
 		fmt.Println(version)
 	case "-h", "--help", "help":
@@ -97,7 +100,11 @@ func cmdShare(args []string, checkOnly bool) error {
 	}
 	upURL, _ := svc.UpstreamURL()
 
-	roots, added, err := trust.Pool(append(cfg.CAFiles, caFiles...))
+	dirFiles, err := trust.DirFiles(config.Dir())
+	if err != nil {
+		return err
+	}
+	roots, added, err := trust.Pool(append(append(dirFiles, cfg.CAFiles...), caFiles...))
 	if err != nil {
 		return err
 	}
@@ -105,8 +112,11 @@ func cmdShare(args []string, checkOnly bool) error {
 
 	info, err := probe(svc, roots)
 	if err != nil {
-		return fmt.Errorf("%s is not reachable from this machine: %w\n"+
-			"Check that the VPN (Twingate, Tailscale) is connected and that the homenet root CA is embedded or passed with --ca-file", upURL.Host, err)
+		hint := "Check that the VPN (Twingate, Tailscale) is connected."
+		if added == 0 {
+			hint += "\nNo homenet root CA is trusted yet: add yours with \"homenet-bridge trust add <root-ca.crt>\"."
+		}
+		return fmt.Errorf("%s is not reachable from this machine: %w\n%s", upURL.Host, err, hint)
 	}
 	fmt.Printf("Upstream %s OK%s.\n", upURL.Host, info.describe())
 	if checkOnly {
@@ -171,6 +181,22 @@ func cmdShare(args []string, checkOnly bool) error {
 	shutCtx, shutCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer shutCancel()
 	return srv.Shutdown(shutCtx)
+}
+
+func cmdTrust(args []string) error {
+	if len(args) != 2 || args[0] != "add" {
+		return errors.New(`usage: homenet-bridge trust add <root-ca.crt>`)
+	}
+	dest, fps, err := trust.Install(args[1], config.Dir())
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Trusted for homenet upstreams: %s\n", dest)
+	for _, fp := range fps {
+		fmt.Printf("SHA-256 %s\n", fp)
+	}
+	fmt.Println("Compare it with the fingerprint printed when the CA was created.")
+	return nil
 }
 
 func pickService(cfg *config.Config, name, upstream string, port int, kind string) (*config.Service, error) {

@@ -28,12 +28,28 @@ temporary, opt-in relay for **one service**, for **approved devices**, for **a l
   on the TV lists "*Your server* via *laptop*" without anyone typing an IP. A device asking
   for discovery also starts pairing, so the approval prompt shows up early.
 
+## Install
+
+**macOS / Linux with Homebrew**
+
+```sh
+brew install frigori/tap/homenet-bridge
+```
+
+**Manual:** download the archive for your OS from
+[Releases](https://github.com/frigori/homenet-bridge/releases), check it against
+`checksums.txt`, and put `homenet-bridge` on your `PATH`. The macOS binaries aren't notarized,
+so a downloaded one has to be cleared once: `xattr -d com.apple.quarantine homenet-bridge`
+(Homebrew does this for you).
+
+**From source:** `make build`. Roots in `internal/trust/roots/` are embedded in that build.
+
 ## Quick start
 
 ```sh
-# 1. Embed your homenet root CA (public certificate only):
-cp ~/.local/share/homelab-ca/homelab-root-ca.crt internal/trust/roots/
-make build          # no local Go: see the comment at the top of the Makefile
+# 1. Trust your homenet root CA (public certificate only). Compare the printed
+#    fingerprint with the one shown when you created the CA:
+homenet-bridge trust add ~/.local/share/homelab-ca/homelab-root-ca.crt
 
 # 2. Describe the services you're willing to share (or pass --config):
 #    macOS: ~/Library/Application Support/homenet-bridge/config.json
@@ -42,11 +58,11 @@ mkdir -p ~/Library/Application\ Support/homenet-bridge
 cp config.example.json ~/Library/Application\ Support/homenet-bridge/config.json
 
 # 3. With the VPN connected:
-bin/homenet-bridge check jellyfin
-bin/homenet-bridge share jellyfin --for 3h
+homenet-bridge check jellyfin
+homenet-bridge share jellyfin --for 3h
 ```
 
-No config file? `bin/homenet-bridge share --upstream https://jellyfin.lan.home.arpa` works too.
+No config file? `homenet-bridge share --upstream https://jellyfin.lan.home.arpa` works too.
 
 On the TV, open the Jellyfin app: the server shows up by itself (or enter the address the
 bridge prints, e.g. `http://192.168.0.42:8096`). Approve the device on the laptop, then
@@ -95,6 +111,11 @@ so your password never crosses that network.
 make test vet
 make dist     # darwin, linux and windows binaries in dist/
 ```
+
+Releases: push a `vX.Y.Z` tag. GitHub Actions runs GoReleaser, which publishes the
+archives and updates the cask in [frigori/homebrew-tap](https://github.com/frigori/homebrew-tap).
+This needs a `HOMEBREW_TAP_GITHUB_TOKEN` repository secret: a fine-grained token with
+*Contents: read and write* on the tap repository only.
 
 ## License
 
