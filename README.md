@@ -83,6 +83,7 @@ so your password never crosses that network.
 | `--ca-file` | | extra root CA (repeatable) |
 | `--name` | hostname | name shown to devices |
 | `--no-discovery` | | don't answer UDP 7359 |
+| `--verbose` | | log every request: device, method, path, status, time |
 | `--upstream`, `--port`, `--kind` | | share a service without a config file |
 
 ## Limits and caveats

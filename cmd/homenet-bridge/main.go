@@ -85,6 +85,7 @@ func cmdShare(args []string, checkOnly bool) error {
 	bind := fs.String("bind", "", "LAN address to listen on (default: this machine's LAN address)")
 	name := fs.String("name", "", "bridge name shown to devices (default: hostname)")
 	noDiscovery := fs.Bool("no-discovery", false, "do not answer Jellyfin discovery on UDP 7359")
+	verbose := fs.Bool("verbose", false, "log every request (device, method, path, status, time)")
 	var allow, caFiles multiFlag
 	fs.Var(&allow, "allow", "pre-approve a device IP (repeatable)")
 	fs.Var(&caFiles, "ca-file", "extra PEM root to trust for the upstream (repeatable)")
@@ -148,7 +149,7 @@ func cmdShare(args []string, checkOnly bool) error {
 
 	logger := log.Default()
 	srv := &http.Server{
-		Handler:           reg.Middleware(bridgeName, proxy.New(upURL, roots, logger)),
+		Handler:           accessLog(*verbose, logger, reg.Middleware(bridgeName, proxy.New(upURL, roots, logger))),
 		ReadHeaderTimeout: 10 * time.Second,
 		ErrorLog:          logger,
 	}
@@ -198,6 +199,33 @@ func cmdTrust(args []string) error {
 	fmt.Println("Compare it with the fingerprint printed when the CA was created.")
 	return nil
 }
+
+// accessLog logs each request once it is done, when on.
+func accessLog(on bool, logger *log.Logger, next http.Handler) http.Handler {
+	if !on {
+		return next
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+		next.ServeHTTP(rec, r)
+		logger.Printf("%s %s %s -> %d (%s)", r.RemoteAddr, r.Method, r.URL.RequestURI(), rec.status,
+			time.Since(start).Round(time.Millisecond))
+	})
+}
+
+type statusRecorder struct {
+	http.ResponseWriter
+	status int
+}
+
+func (s *statusRecorder) WriteHeader(code int) {
+	s.status = code
+	s.ResponseWriter.WriteHeader(code)
+}
+
+// Unwrap lets http.ResponseController reach Flush and Hijack (streaming, websockets).
+func (s *statusRecorder) Unwrap() http.ResponseWriter { return s.ResponseWriter }
 
 func pickService(cfg *config.Config, name, upstream string, port int, kind string) (*config.Service, error) {
 	if upstream == "" {
