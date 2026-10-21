@@ -41,9 +41,12 @@ homebrew_casks:
       name: goreleaserbot
       email: bot@goreleaser.com
     # The binary is not notarized: without this, Gatekeeper refuses to run it.
-    hooks:
-      post:
-        install: |
-          if system_command("/usr/bin/xattr", args: ["-h"]).exit_status == 0
-            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/homenet-bridge"]
-          end
+    # Homebrew 7 deprecates `postflight` (what `hooks` generates) for the sandboxed
+    # `postflight_steps`, which GoReleaser has no option for yet. The {{ "{{" }} escape keeps
+    # Homebrew's {{staged_path}} placeholder out of GoReleaser's own templating.
+    custom_block: |
+      postflight_steps do
+        on_macos do
+          run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ "{{" }}staged_path}}/homenet-bridge"]
+        end
+      end
