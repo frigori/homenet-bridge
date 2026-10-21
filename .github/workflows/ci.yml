@@ -23,6 +23,9 @@ jobs:
         run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
       - run: go vet ./...
       - run: go test -race ./...
+      - name: shellcheck install.sh
+        if: matrix.os == 'ubuntu-latest'
+        run: shellcheck install.sh
       # Windows is only built, not tested: the bridge has not been tried there yet.
       - name: Cross-build
         if: matrix.os == 'ubuntu-latest'

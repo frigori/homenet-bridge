@@ -36,6 +36,28 @@ temporary, opt-in relay for **one service**, for **approved devices**, for **a l
 brew install frigori/tap/homenet-bridge
 ```
 
+**Linux (or macOS) with the install script.** It picks your architecture, downloads the
+latest release, checks it against `checksums.txt` and installs to `/usr/local/bin` (with
+sudo if needed, otherwise `~/.local/bin`). Read it first if you prefer: it's short.
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/frigori/homenet-bridge/main/install.sh | sh
+```
+
+Set `HOMENET_BRIDGE_VERSION=0.1.3` to pin a version, or `HOMENET_BRIDGE_INSTALL_DIR` to
+choose where it goes.
+
+**Linux packages.** Each release has `.deb`, `.rpm` and `.apk` packages (amd64 and arm64):
+
+```sh
+sudo apt install ./homenet-bridge_<version>_arm64.deb        # Debian, Ubuntu, Raspberry Pi OS
+sudo dnf install ./homenet-bridge-<version>-1.aarch64.rpm    # Fedora, RHEL
+sudo apk add --allow-untrusted ./homenet-bridge_<version>_aarch64.apk   # Alpine (unsigned)
+```
+
+On Linux with a firewall (ufw, firewalld), allow **8096/tcp** and **7359/udp** from the LAN
+while sharing, or devices won't reach the bridge.
+
 **Manual:** download the archive for your OS from
 [Releases](https://github.com/frigori/homenet-bridge/releases), check it against
 `checksums.txt`, and put `homenet-bridge` on your `PATH`. The macOS binaries aren't notarized,

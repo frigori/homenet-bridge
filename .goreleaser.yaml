@@ -20,6 +20,22 @@ archives:
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     files: [README.md, LICENSE, config.example.json]
 
+nfpms:
+  - package_name: homenet-bridge
+    file_name_template: "{{ .ConventionalFileName }}"
+    vendor: frigori
+    homepage: https://github.com/frigori/homenet-bridge
+    # Same identity as the commits.
+    maintainer: frigori <mattia.giovannini02@gmail.com>
+    description: Share a homenet service with LAN devices through this machine's VPN.
+    license: MIT
+    formats: [deb, rpm, apk]
+    bindir: /usr/bin
+    contents:
+      - { src: README.md, dst: /usr/share/doc/homenet-bridge/README.md }
+      - { src: LICENSE, dst: /usr/share/doc/homenet-bridge/LICENSE }
+      - { src: config.example.json, dst: /usr/share/doc/homenet-bridge/config.example.json }
+
 checksum:
   name_template: checksums.txt
 
