@@ -1,0 +1,11 @@
+{
+  "bridge_name": "Mattia's MacBook",
+  "services": [
+    {
+      "name": "jellyfin",
+      "upstream": "https://jellyfin.lan.home.arpa",
+      "port": 8096,
+      "kind": "jellyfin"
+    }
+  ]
+}
