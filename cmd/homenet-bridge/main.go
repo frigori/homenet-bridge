@@ -20,13 +20,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/mattiagiovannini/homenet-bridge/internal/awake"
-	"github.com/mattiagiovannini/homenet-bridge/internal/config"
-	"github.com/mattiagiovannini/homenet-bridge/internal/discovery"
-	"github.com/mattiagiovannini/homenet-bridge/internal/netutil"
-	"github.com/mattiagiovannini/homenet-bridge/internal/pairing"
-	"github.com/mattiagiovannini/homenet-bridge/internal/proxy"
-	"github.com/mattiagiovannini/homenet-bridge/internal/trust"
+	"github.com/frigori/homenet-bridge/internal/awake"
+	"github.com/frigori/homenet-bridge/internal/config"
+	"github.com/frigori/homenet-bridge/internal/discovery"
+	"github.com/frigori/homenet-bridge/internal/netutil"
+	"github.com/frigori/homenet-bridge/internal/pairing"
+	"github.com/frigori/homenet-bridge/internal/proxy"
+	"github.com/frigori/homenet-bridge/internal/trust"
 )
 
 var version = "dev"

@@ -1,3 +1,3 @@
-module github.com/mattiagiovannini/homenet-bridge
+module github.com/frigori/homenet-bridge
 
 go 1.25

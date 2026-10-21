@@ -15,7 +15,7 @@ import (
 	"net"
 	"net/netip"
 
-	"github.com/mattiagiovannini/homenet-bridge/internal/netutil"
+	"github.com/frigori/homenet-bridge/internal/netutil"
 )
 
 const (

@@ -15,7 +15,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mattiagiovannini/homenet-bridge/internal/netutil"
+	"github.com/frigori/homenet-bridge/internal/netutil"
 )
 
 type State int
