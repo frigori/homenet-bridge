@@ -231,7 +231,7 @@ func pickService(cfg *config.Config, name, upstream string, port int, kind strin
 	if upstream == "" {
 		return cfg.Service(name)
 	}
-	svc := &config.Service{Name: firstNonEmpty(name, "service"), Upstream: upstream, Port: port, Kind: kind}
+	svc := &config.Service{Name: firstNonEmpty(name, kind, "service"), Upstream: upstream, Port: port, Kind: kind}
 	return svc, svc.Validate()
 }
 
