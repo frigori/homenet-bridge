@@ -13,8 +13,13 @@ import (
 	"net/url"
 )
 
+type Options struct {
+	// Jellyfin enables Jellyfin-specific response rewriting (LocalAddress).
+	Jellyfin bool
+}
+
 // New returns a reverse proxy to upstream that verifies it against roots.
-func New(upstream *url.URL, roots *x509.CertPool, logger *log.Logger) *httputil.ReverseProxy {
+func New(upstream *url.URL, roots *x509.CertPool, logger *log.Logger, opts Options) *httputil.ReverseProxy {
 	tr := http.DefaultTransport.(*http.Transport).Clone()
 	tr.TLSClientConfig = &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}
 	// Media streams are long; Twingate and Tailscale already keep the tunnel alive.
@@ -25,12 +30,20 @@ func New(upstream *url.URL, roots *x509.CertPool, logger *log.Logger) *httputil.
 			// SetURL also sets Host to the upstream's, which is what Traefik routes on.
 			pr.SetURL(upstream)
 			pr.SetXForwarded()
+			if opts.Jellyfin && isSystemInfo(pr.In.URL.Path) {
+				// Without the device's Accept-Encoding the transport negotiates gzip itself
+				// and hands back plain JSON, which rewriteLocalAddress can edit.
+				pr.Out.Header.Del("Accept-Encoding")
+			}
 		},
 		Transport: tr,
 		// Flush immediately: video segments and websocket-like long polls.
 		FlushInterval: -1,
 		ModifyResponse: func(resp *http.Response) error {
 			rewriteLocation(resp, upstream)
+			if opts.Jellyfin {
+				return rewriteLocalAddress(resp, upstream)
+			}
 			return nil
 		},
 		ErrorLog: logger,

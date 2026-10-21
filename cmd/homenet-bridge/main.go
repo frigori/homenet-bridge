@@ -149,7 +149,7 @@ func cmdShare(args []string, checkOnly bool) error {
 
 	logger := log.Default()
 	srv := &http.Server{
-		Handler:           accessLog(*verbose, logger, reg.Middleware(bridgeName, proxy.New(upURL, roots, logger))),
+		Handler:           accessLog(*verbose, logger, reg.Middleware(bridgeName, proxy.New(upURL, roots, logger, proxy.Options{Jellyfin: svc.Kind == config.KindJellyfin}))),
 		ReadHeaderTimeout: 10 * time.Second,
 		ErrorLog:          logger,
 	}
@@ -347,7 +347,7 @@ func (i upstreamInfo) describe() string {
 // reads the server's public info, reused in discovery replies.
 func probe(svc *config.Service, roots *x509.CertPool) (upstreamInfo, error) {
 	u, _ := svc.UpstreamURL()
-	tr := proxy.New(u, roots, log.Default()).Transport
+	tr := proxy.New(u, roots, log.Default(), proxy.Options{}).Transport
 	client := &http.Client{Transport: tr, Timeout: 10 * time.Second}
 
 	path := "/"

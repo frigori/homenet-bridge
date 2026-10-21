@@ -24,7 +24,7 @@ func TestProxyVerifiesAndForwards(t *testing.T) {
 	upURL, _ := url.Parse(up.URL)
 
 	roots := up.Client().Transport.(*http.Transport).TLSClientConfig.RootCAs
-	front := httptest.NewServer(New(upURL, roots, log.New(io.Discard, "", 0)))
+	front := httptest.NewServer(New(upURL, roots, log.New(io.Discard, "", 0), Options{}))
 	defer front.Close()
 
 	resp, err := http.Get(front.URL + "/System/Info/Public")
@@ -59,7 +59,7 @@ func TestProxyRejectsUntrustedUpstream(t *testing.T) {
 	defer up.Close()
 	upURL, _ := url.Parse(up.URL)
 
-	front := httptest.NewServer(New(upURL, nil, log.New(io.Discard, "", 0)))
+	front := httptest.NewServer(New(upURL, nil, log.New(io.Discard, "", 0), Options{}))
 	defer front.Close()
 
 	resp, err := http.Get(front.URL + "/")
