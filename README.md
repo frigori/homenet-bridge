@@ -33,6 +33,8 @@ temporary, opt-in relay for **one service**, for **approved devices**, for **a l
   waits for approval it can still read Jellyfin's public server info (`/System/Info/Public`,
   `/System/Ping`): apps check it before listing a discovered server, and the name, id and
   version it shows are already in the discovery reply. Everything else waits for approval.
+  Tested: the server shows up by itself on **Apple TV**. The Jellyfin **iOS** app doesn't
+  search the network, so on iPhone add the address the bridge prints by hand.
 
 ## Install
 
