@@ -16,6 +16,7 @@ import (
 	"net/netip"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -213,21 +214,44 @@ func accessLog(on bool, logger *log.Logger, next http.Handler) http.Handler {
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+		rec := &statusRecorder{ResponseWriter: w}
 		next.ServeHTTP(rec, r)
-		logger.Printf("%s %s %s -> %d (%s)", r.RemoteAddr, r.Method, r.URL.RequestURI(), rec.status,
+		var result string
+		switch {
+		case rec.status != 0:
+			result = strconv.Itoa(rec.status)
+		case r.Context().Err() != nil:
+			// E.g. a pending device that stopped waiting for approval.
+			result = "client gone"
+		case r.Header.Get("Upgrade") != "":
+			// The proxy writes 101 on the hijacked connection, past the recorder.
+			result = "101 upgraded"
+		default:
+			result = "200"
+		}
+		logger.Printf("%s %s %s -> %s (%s)", r.RemoteAddr, r.Method, r.URL.RequestURI(), result,
 			time.Since(start).Round(time.Millisecond))
 	})
 }
 
+// statusRecorder remembers the status written; 0 means nothing was written through it.
 type statusRecorder struct {
 	http.ResponseWriter
 	status int
 }
 
 func (s *statusRecorder) WriteHeader(code int) {
-	s.status = code
+	if s.status == 0 {
+		s.status = code
+	}
 	s.ResponseWriter.WriteHeader(code)
+}
+
+func (s *statusRecorder) Write(b []byte) (int, error) {
+	if s.status == 0 {
+		s.status = http.StatusOK
+	}
+	return s.ResponseWriter.Write(b)
 }
 
 // Unwrap lets http.ResponseController reach Flush and Hijack (streaming, websockets).
