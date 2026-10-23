@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="8 16 104 80" role="img" aria-label="homenet-bridge">
+  <!-- One-colour glyph, no tile: Android notification icon, monochrome favicon, icon tiles.
+       Uses currentColor so it takes the colour of the text around it when inlined. -->
+  <path d="M14 82 H106" stroke="currentColor" stroke-width="8" stroke-linecap="round" fill="none"/>
+  <path d="M26 82 Q60 22 94 82" stroke="currentColor" stroke-width="11" stroke-linecap="round" fill="none"/>
+</svg>

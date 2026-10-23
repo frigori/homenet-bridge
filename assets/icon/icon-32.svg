@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="homenet-bridge">
+  <!-- 24-48 px: no hangers, heavier strokes. -->
+  <rect width="120" height="120" rx="26" fill="#1b2440"/>
+  <path d="M14 82 H106" stroke="#eef1fa" stroke-width="9" stroke-linecap="round" fill="none"/>
+  <path d="M26 82 Q60 22 94 82" stroke="#ffb347" stroke-width="14" stroke-linecap="round" fill="none"/>
+</svg>

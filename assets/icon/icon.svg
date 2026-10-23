@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="homenet-bridge">
+  <!-- Master icon, for 96 px and up. Smaller sizes: icon-32.svg, icon-16.svg. -->
+  <rect width="120" height="120" rx="26" fill="#1b2440"/>
+  <path d="M14 82 H106" stroke="#eef1fa" stroke-width="6" stroke-linecap="round" fill="none"/>
+  <path d="M43 80 V62 M60 80 V54 M77 80 V62" stroke="#ffb347" stroke-width="3" stroke-linecap="round" opacity="0.5" fill="none"/>
+  <path d="M26 82 Q60 22 94 82" stroke="#ffb347" stroke-width="9" stroke-linecap="round" fill="none"/>
+</svg>

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640">
+  <!-- GitHub social preview (1280x640). Rendered to social-preview.png; upload it in the
+       repository's Settings > General > Social preview. -->
+  <rect width="1280" height="640" fill="#0e1220"/>
+  <g transform="translate(96 160) scale(2.667)">
+    <rect width="120" height="120" rx="26" fill="#1b2440"/>
+    <path d="M14 82 H106" stroke="#eef1fa" stroke-width="6" stroke-linecap="round" fill="none"/>
+    <path d="M43 80 V62 M60 80 V54 M77 80 V62" stroke="#ffb347" stroke-width="3" stroke-linecap="round" opacity="0.5" fill="none"/>
+    <path d="M26 82 Q60 22 94 82" stroke="#ffb347" stroke-width="9" stroke-linecap="round" fill="none"/>
+  </g>
+  <g font-family="Noto Sans, DejaVu Sans, Helvetica, Arial, sans-serif">
+    <text x="496" y="258" font-size="72" font-weight="700" fill="#eef1fa">homenet-bridge</text>
+    <text x="496" y="318" font-size="30" fill="#c3cbe2">Watch your home Jellyfin on any TV,</text>
+    <text x="496" y="360" font-size="30" fill="#c3cbe2">through the laptop that has your VPN.</text>
+  </g>
+  <text x="496" y="452" font-family="Noto Sans Mono, DejaVu Sans Mono, Menlo, monospace" font-size="26" fill="#ffb347">brew install frigori/tap/homenet-bridge</text>
+</svg>

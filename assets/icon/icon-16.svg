@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="homenet-bridge">
+  <!-- 16 px favicon: wider, heavier arch so it survives at one pixel per stroke. -->
+  <rect width="120" height="120" rx="22" fill="#1b2440"/>
+  <path d="M14 84 H106" stroke="#eef1fa" stroke-width="13" stroke-linecap="round" fill="none"/>
+  <path d="M24 84 Q60 18 96 84" stroke="#ffb347" stroke-width="20" stroke-linecap="round" fill="none"/>
+</svg>

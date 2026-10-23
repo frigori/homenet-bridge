@@ -1,3 +1,5 @@
+<img src="assets/icon/icon.svg" width="96" height="96" alt="homenet-bridge icon: an amber arch over a deck">
+
 # homenet-bridge
 
 Let a device that can't run your VPN, like a TV in a holiday rental, use a service on your
