@@ -39,9 +39,16 @@ type Device struct {
 	Hint string
 
 	queued bool
+	// decided is closed when the device stops being pending.
+	decided chan struct{}
 }
 
 type Registry struct {
+	// Hold is how long a pending device's request waits for the operator before it is
+	// answered with 503. Approving within it lets that same request through, so apps work
+	// on the first try instead of failing and needing a retry.
+	Hold time.Duration
+
 	mu       sync.Mutex
 	devices  map[netip.Addr]*Device
 	requests chan Device
@@ -50,6 +57,8 @@ type Registry struct {
 
 func New() *Registry {
 	return &Registry{
+		// Under the 30s or so after which most clients give up on a request.
+		Hold:     25 * time.Second,
 		devices:  map[netip.Addr]*Device{},
 		requests: make(chan Device, 16),
 		now:      time.Now,
@@ -64,7 +73,8 @@ func (r *Registry) Allow(ip netip.Addr) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	d := r.get(ip.Unmap(), "")
-	d.State, d.queued = Approved, true
+	d.queued = true
+	setState(d, Approved)
 }
 
 // Decide approves or denies ip. It returns false if ip never showed up.
@@ -76,11 +86,25 @@ func (r *Registry) Decide(ip netip.Addr, approve bool) bool {
 		return false
 	}
 	if approve {
-		d.State = Approved
+		setState(d, Approved)
 	} else {
-		d.State = Denied
+		setState(d, Denied)
 	}
 	return true
+}
+
+func setState(d *Device, s State) {
+	if d.State == Pending && s != Pending {
+		close(d.decided)
+	}
+	d.State = s
+}
+
+// decided returns a channel closed once ip is approved or denied.
+func (r *Registry) decided(ip netip.Addr) <-chan struct{} {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.get(ip.Unmap(), "").decided
 }
 
 // Check returns ip's state, registering it as pending the first time it is seen.
@@ -122,7 +146,8 @@ func (r *Registry) Devices() []Device {
 func (r *Registry) get(ip netip.Addr, hint string) *Device {
 	d, ok := r.devices[ip]
 	if !ok {
-		d = &Device{IP: ip, Code: newCode(), State: Pending, FirstSeen: r.now(), Hint: hint}
+		d = &Device{IP: ip, Code: newCode(), State: Pending, FirstSeen: r.now(), Hint: hint,
+			decided: make(chan struct{})}
 		r.devices[ip] = d
 	}
 	return d
@@ -140,7 +165,8 @@ func newCode() string {
 // bridgeName is shown on the waiting page so the person at the TV knows where to look.
 // Requests for which public returns true also reach next from pending devices: clients
 // check a server's public info before listing it, and would drop the bridge before anyone
-// had the chance to approve them. public may be nil.
+// had the chance to approve them. public may be nil. Other requests from a pending device
+// wait up to r.Hold for the operator's decision before being turned away.
 func (r *Registry) Middleware(bridgeName string, public func(*http.Request) bool, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		ap, err := netip.ParseAddrPort(req.RemoteAddr)
@@ -149,6 +175,20 @@ func (r *Registry) Middleware(bridgeName string, public func(*http.Request) bool
 			return
 		}
 		state, code := r.Check(ap.Addr(), req.UserAgent())
+		if state == Pending && (public == nil || !public(req)) {
+			// Wait for the operator, so approving lets this very request through.
+			timer := time.NewTimer(r.Hold)
+			select {
+			case <-r.decided(ap.Addr()):
+			case <-req.Context().Done():
+			case <-timer.C:
+			}
+			timer.Stop()
+			if req.Context().Err() != nil {
+				return
+			}
+			state, code = r.Check(ap.Addr(), req.UserAgent())
+		}
 		switch {
 		case state == Approved, state == Pending && public != nil && public(req):
 			next.ServeHTTP(w, req)

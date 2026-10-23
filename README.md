@@ -18,8 +18,11 @@ temporary, opt-in relay for **one service**, for **approved devices**, for **a l
   the system roots plus your homenet root CA (embedded at build time, or `--ca-file`). The
   upstream is dialed **by hostname**, so the laptop's VPN client routes it as it would for a
   browser, and your reverse proxy (Traefik, ...) sees the right Host and SNI.
-- **Pairing.** A new device gets `503` and a 4-digit code. The laptop terminal shows the
-  same code and asks you to approve it. Approvals last only for the session. Only LAN
+- **Pairing.** The first request from a new device puts a 4-digit code and an approval
+  prompt in the laptop terminal, and **waits** (up to 25 s): approve it in that time and the
+  same request goes through, so the app works on the first try. Without an answer the
+  device gets `503` with the code, to retry after approving. Approvals last only for the
+  session. Only LAN
   addresses (RFC 1918, link-local, loopback) can pair. CGNAT addresses (Twingate,
   Tailscale) never can, so the bridge can't reshare your homenet onto the VPN.
 - **Time limit.** `--for 4h` (default). The bridge stops by itself and keeps the laptop

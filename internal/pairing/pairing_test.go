@@ -6,11 +6,13 @@ import (
 	"net/netip"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestPairingFlow(t *testing.T) {
 	r := New()
 	ok := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusTeapot) })
+	r.Hold = 0
 	h := r.Middleware("laptop", nil, ok)
 
 	do := func(remote string) *httptest.ResponseRecorder {
@@ -83,6 +85,7 @@ func TestPublicRequestsReachPendingButNotDeniedDevices(t *testing.T) {
 	r := New()
 	ok := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusTeapot) })
 	public := func(req *http.Request) bool { return req.URL.Path == "/public" }
+	r.Hold = 0
 	h := r.Middleware("laptop", public, ok)
 
 	do := func(remote, path string) int {
@@ -111,5 +114,54 @@ func TestPublicRequestsReachPendingButNotDeniedDevices(t *testing.T) {
 	}
 	if code := do("100.96.0.1:1", "/public"); code != http.StatusForbidden {
 		t.Fatalf("VPN address, public path: %d, want 403", code)
+	}
+}
+
+func TestPendingRequestWaitsForTheDecision(t *testing.T) {
+	ok := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusTeapot) })
+	serve := func(r *Registry) <-chan int {
+		done := make(chan int, 1)
+		go func() {
+			req := httptest.NewRequest("GET", "/", nil)
+			req.RemoteAddr = "192.168.0.23:1"
+			rec := httptest.NewRecorder()
+			r.Middleware("laptop", nil, ok).ServeHTTP(rec, req)
+			done <- rec.Code
+		}()
+		return done
+	}
+
+	for _, c := range []struct {
+		name    string
+		approve bool
+		want    int
+	}{
+		{"approved while waiting", true, http.StatusTeapot},
+		{"denied while waiting", false, http.StatusForbidden},
+	} {
+		r := New()
+		r.Hold = 5 * time.Second
+		done := serve(r)
+		d := <-r.Requests() // the operator sees the prompt while the request waits
+		select {
+		case code := <-done:
+			t.Fatalf("%s: answered %d before any decision", c.name, code)
+		case <-time.After(50 * time.Millisecond):
+		}
+		r.Decide(d.IP, c.approve)
+		select {
+		case code := <-done:
+			if code != c.want {
+				t.Errorf("%s: %d, want %d", c.name, code, c.want)
+			}
+		case <-time.After(2 * time.Second):
+			t.Fatalf("%s: still waiting after the decision", c.name)
+		}
+	}
+
+	r := New()
+	r.Hold = 20 * time.Millisecond
+	if code := <-serve(r); code != http.StatusServiceUnavailable {
+		t.Errorf("no decision: %d, want 503 after Hold", code)
 	}
 }
