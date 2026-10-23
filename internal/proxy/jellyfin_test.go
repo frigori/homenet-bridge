@@ -105,3 +105,23 @@ func TestLocalAddressUntouchedWithoutJellyfinOption(t *testing.T) {
 		t.Errorf("body = %q, want it unchanged", body)
 	}
 }
+
+func TestJellyfinPublic(t *testing.T) {
+	for _, c := range []struct {
+		method, path string
+		want         bool
+	}{
+		{"GET", "/System/Info/Public", true},
+		{"GET", "/system/info/public/", true},
+		{"HEAD", "/System/Ping", true},
+		{"POST", "/System/Info/Public", false},
+		{"GET", "/System/Info", false},
+		{"GET", "/Users/Public", false},
+		{"GET", "/web/index.html", false},
+	} {
+		req := httptest.NewRequest(c.method, c.path, nil)
+		if got := JellyfinPublic(req); got != c.want {
+			t.Errorf("%s %s: %v, want %v", c.method, c.path, got, c.want)
+		}
+	}
+}

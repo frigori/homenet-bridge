@@ -148,8 +148,14 @@ func cmdShare(args []string, checkOnly bool) error {
 	defer cancel()
 
 	logger := log.Default()
+	jellyfin := svc.Kind == config.KindJellyfin
+	var public func(*http.Request) bool
+	if jellyfin {
+		public = proxy.JellyfinPublic
+	}
+	upstreamProxy := proxy.New(upURL, roots, logger, proxy.Options{Jellyfin: jellyfin})
 	srv := &http.Server{
-		Handler:           accessLog(*verbose, logger, reg.Middleware(bridgeName, proxy.New(upURL, roots, logger, proxy.Options{Jellyfin: svc.Kind == config.KindJellyfin}))),
+		Handler:           accessLog(*verbose, logger, reg.Middleware(bridgeName, public, upstreamProxy)),
 		ReadHeaderTimeout: 10 * time.Second,
 		ErrorLog:          logger,
 	}

@@ -20,6 +20,17 @@ func isSystemInfo(path string) bool {
 	return strings.EqualFold(path, "/System/Info") || strings.EqualFold(path, "/System/Info/Public")
 }
 
+// JellyfinPublic reports whether r only reads what Jellyfin serves without signing in and
+// clients need to list a server: its public info and ping. Server name, id and version are
+// already in the discovery reply, so this reveals nothing new to a pending device.
+func JellyfinPublic(r *http.Request) bool {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		return false
+	}
+	path := strings.TrimSuffix(r.URL.Path, "/")
+	return strings.EqualFold(path, "/System/Info/Public") || strings.EqualFold(path, "/System/Ping")
+}
+
 // rewriteLocalAddress replaces LocalAddress in Jellyfin's server info with the bridge's own
 // address. Clients use LocalAddress to reconnect; left alone it is the homenet name
 // (https://jellyfin.lan.home.arpa), which a TV on someone else's network can neither

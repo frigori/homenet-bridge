@@ -11,7 +11,7 @@ import (
 func TestPairingFlow(t *testing.T) {
 	r := New()
 	ok := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusTeapot) })
-	h := r.Middleware("laptop", ok)
+	h := r.Middleware("laptop", nil, ok)
 
 	do := func(remote string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest("GET", "/", nil)
@@ -76,5 +76,40 @@ func TestAllowAndMappedAddresses(t *testing.T) {
 	case <-r.Requests():
 		t.Fatal("pre-approved device should not ask")
 	default:
+	}
+}
+
+func TestPublicRequestsReachPendingButNotDeniedDevices(t *testing.T) {
+	r := New()
+	ok := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusTeapot) })
+	public := func(req *http.Request) bool { return req.URL.Path == "/public" }
+	h := r.Middleware("laptop", public, ok)
+
+	do := func(remote, path string) int {
+		req := httptest.NewRequest("GET", path, nil)
+		req.RemoteAddr = remote
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		return rec.Code
+	}
+
+	if code := do("192.168.0.23:1", "/public"); code != http.StatusTeapot {
+		t.Fatalf("pending device, public path: %d, want it served", code)
+	}
+	select {
+	case <-r.Requests():
+	default:
+		t.Fatal("a public request must still put the device up for approval")
+	}
+	if code := do("192.168.0.23:1", "/private"); code != http.StatusServiceUnavailable {
+		t.Fatalf("pending device, private path: %d, want 503", code)
+	}
+
+	r.Decide(netip.MustParseAddr("192.168.0.23"), false)
+	if code := do("192.168.0.23:1", "/public"); code != http.StatusForbidden {
+		t.Fatalf("denied device, public path: %d, want 403", code)
+	}
+	if code := do("100.96.0.1:1", "/public"); code != http.StatusForbidden {
+		t.Fatalf("VPN address, public path: %d, want 403", code)
 	}
 }

@@ -138,7 +138,10 @@ func newCode() string {
 
 // Middleware lets approved devices through to next and turns everybody else away.
 // bridgeName is shown on the waiting page so the person at the TV knows where to look.
-func (r *Registry) Middleware(bridgeName string, next http.Handler) http.Handler {
+// Requests for which public returns true also reach next from pending devices: clients
+// check a server's public info before listing it, and would drop the bridge before anyone
+// had the chance to approve them. public may be nil.
+func (r *Registry) Middleware(bridgeName string, public func(*http.Request) bool, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		ap, err := netip.ParseAddrPort(req.RemoteAddr)
 		if err != nil {
@@ -146,9 +149,12 @@ func (r *Registry) Middleware(bridgeName string, next http.Handler) http.Handler
 			return
 		}
 		state, code := r.Check(ap.Addr(), req.UserAgent())
-		switch state {
-		case Approved:
+		switch {
+		case state == Approved, state == Pending && public != nil && public(req):
 			next.ServeHTTP(w, req)
+			return
+		}
+		switch state {
 		case Pending:
 			w.Header().Set("Retry-After", "5")
 			http.Error(w, fmt.Sprintf(

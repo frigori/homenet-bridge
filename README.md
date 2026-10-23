@@ -26,7 +26,10 @@ temporary, opt-in relay for **one service**, for **approved devices**, for **a l
   awake until then (`caffeinate` on macOS, `systemd-inhibit` on Linux).
 - **Jellyfin discovery.** Answers `who is JellyfinServer?` on UDP 7359, so the Jellyfin app
   on the TV lists "*Your server* via *laptop*" without anyone typing an IP. A device asking
-  for discovery also starts pairing, so the approval prompt shows up early.
+  for discovery also starts pairing, so the approval prompt shows up early. While a device
+  waits for approval it can still read Jellyfin's public server info (`/System/Info/Public`,
+  `/System/Ping`): apps check it before listing a discovered server, and the name, id and
+  version it shows are already in the discovery reply. Everything else waits for approval.
 
 ## Install
 
