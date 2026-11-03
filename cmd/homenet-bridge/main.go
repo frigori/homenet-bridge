@@ -14,6 +14,7 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
+	"net/url"
 	"os"
 	"os/signal"
 	"strconv"
@@ -291,9 +292,37 @@ func accessLog(on bool, logger *log.Logger, next http.Handler) http.Handler {
 		default:
 			result = "200"
 		}
-		logger.Printf("%s %s %s -> %s (%s)", r.RemoteAddr, r.Method, r.URL.RequestURI(), result,
+		logger.Printf("%s %s %s -> %s (%s)", r.RemoteAddr, r.Method, logURI(r.URL), result,
 			time.Since(start).Round(time.Millisecond))
 	})
+}
+
+// secretParams are query parameters that carry a Jellyfin access token, lowercased.
+var secretParams = map[string]bool{
+	"api_key": true, "apikey": true, "api-key": true, "token": true,
+	"x-emby-token": true, "x-mediabrowser-token": true,
+}
+
+// logURI is u's path and query with access tokens replaced by REDACTED: Jellyfin clients
+// put them in stream and websocket URLs, and the log ends up pasted into chats.
+func logURI(u *url.URL) string {
+	if u.RawQuery == "" {
+		return u.RequestURI()
+	}
+	params := strings.Split(u.RawQuery, "&")
+	for i, p := range params {
+		raw, _, ok := strings.Cut(p, "=")
+		key, err := url.QueryUnescape(raw)
+		if err != nil {
+			key = raw
+		}
+		if ok && secretParams[strings.ToLower(key)] {
+			params[i] = raw + "=REDACTED"
+		}
+	}
+	v := *u
+	v.RawQuery = strings.Join(params, "&")
+	return v.RequestURI()
 }
 
 // statusRecorder remembers the status written; 0 means nothing was written through it.
