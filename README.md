@@ -117,8 +117,13 @@ The app talks to the bridge over a control socket in the config directory, only 
 to your user. A bridge started from the terminal shows up in the app too, and can be
 approved from either place. `--control ""` turns the socket off.
 
-Build it with `make app` (needs the Xcode command line tools); it lands in `dist/` with the
-CLI inside. It's ad-hoc signed, not notarized: the first time, right-click › Open.
+Homebrew installs it in /Applications along with the CLI. Without Homebrew, download
+`HomenetBridge_<version>_macos.zip` from [Releases](https://github.com/frigori/homenet-bridge/releases):
+the CLI is inside the app. It's ad-hoc signed, not notarized, so open it the first time with
+right-click › Open. To build it yourself: `make app` (needs the Xcode command line tools).
+
+Releases build the app on a macOS runner. Push a `release-check` branch to dry-run the whole
+pipeline without publishing anything.
 
 ## Flags
 
@@ -151,7 +156,7 @@ CLI inside. It's ad-hoc signed, not notarized: the first time, right-click › O
 ## Roadmap
 
 - [x] Menu bar app with an approve/deny notification (macOS)
-- [ ] Ship the menu bar app in releases (Homebrew cask)
+- [x] Ship the menu bar app in releases (Homebrew cask)
 - [ ] Tray app for Linux
 - [ ] Device identity by MAC on top of IP
 - [ ] More service presets, with Host/URL rewriting
