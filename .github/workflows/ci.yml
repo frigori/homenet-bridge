@@ -23,6 +23,10 @@ jobs:
         run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
       - run: go vet ./...
       - run: go test -race ./...
+      - name: Menu bar app
+        if: matrix.os == 'macos-latest'
+        working-directory: macos
+        run: swift build -c release
       - name: shellcheck install.sh
         if: matrix.os == 'ubuntu-latest'
         run: shellcheck install.sh

@@ -105,6 +105,21 @@ retry on the TV.
 someone else's Wi-Fi. Quick Connect shows a code on the TV that you approve from your phone,
 so your password never crosses that network.
 
+## Menu bar app (macOS)
+
+`HomenetBridge.app` puts the bridge in the menu bar: the arch icon with the time left while
+sharing, a dot when a device is waiting. New devices get a notification with **Allow** and
+**Deny** buttons, so you approve the TV from the couch within the 25 s hold. The menu shows
+the address (click to copy), the devices, **Extend by 1 hour** and **Stop sharing**, and
+starts a session for any service in `config.json`.
+
+The app talks to the bridge over a control socket in the config directory, only accessible
+to your user. A bridge started from the terminal shows up in the app too, and can be
+approved from either place. `--control ""` turns the socket off.
+
+Build it with `make app` (needs the Xcode command line tools); it lands in `dist/` with the
+CLI inside. It's ad-hoc signed, not notarized: the first time, right-click › Open.
+
 ## Flags
 
 | Flag | Default | |
@@ -116,6 +131,7 @@ so your password never crosses that network.
 | `--name` | hostname | name shown to devices |
 | `--no-discovery` | | don't answer UDP 7359 |
 | `--verbose` | | log every request: device, method, path, status, time |
+| `--control` | `<config dir>/control.sock` | socket for the menu bar app; `""` for none |
 | `--upstream`, `--port`, `--kind` | | share a service without a config file |
 
 ## Limits and caveats
@@ -134,7 +150,9 @@ so your password never crosses that network.
 
 ## Roadmap
 
-- [ ] Tray app with an approve/deny notification
+- [x] Menu bar app with an approve/deny notification (macOS)
+- [ ] Ship the menu bar app in releases (Homebrew cask)
+- [ ] Tray app for Linux
 - [ ] Device identity by MAC on top of IP
 - [ ] More service presets, with Host/URL rewriting
 - [ ] Windows testing

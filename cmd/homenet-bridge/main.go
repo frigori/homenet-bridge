@@ -18,11 +18,13 @@ import (
 	"os/signal"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
 	"github.com/frigori/homenet-bridge/internal/awake"
 	"github.com/frigori/homenet-bridge/internal/config"
+	"github.com/frigori/homenet-bridge/internal/control"
 	"github.com/frigori/homenet-bridge/internal/discovery"
 	"github.com/frigori/homenet-bridge/internal/netutil"
 	"github.com/frigori/homenet-bridge/internal/pairing"
@@ -87,6 +89,8 @@ func cmdShare(args []string, checkOnly bool) error {
 	name := fs.String("name", "", "bridge name shown to devices (default: hostname)")
 	noDiscovery := fs.Bool("no-discovery", false, "do not answer Jellyfin discovery on UDP 7359")
 	verbose := fs.Bool("verbose", false, "log every request (device, method, path, status, time)")
+	controlPath := fs.String("control", control.DefaultPath(config.Dir()),
+		`control socket for the menu bar app ("" for none)`)
 	var allow, caFiles multiFlag
 	fs.Var(&allow, "allow", "pre-approve a device IP (repeatable)")
 	fs.Var(&caFiles, "ca-file", "extra PEM root to trust for the upstream (repeatable)")
@@ -145,8 +149,10 @@ func cmdShare(args []string, checkOnly bool) error {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	ctx, cancel := context.WithTimeout(ctx, *ttl)
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+	sess := newSession(reg, *ttl, cancel)
+	defer sess.timer.Stop()
 
 	logger := log.Default()
 	jellyfin := svc.Kind == config.KindJellyfin
@@ -171,6 +177,36 @@ func cmdShare(args []string, checkOnly bool) error {
 		}
 	}()
 
+	sess.status = control.Status{
+		Service:  svc.Name,
+		Upstream: upURL.String(),
+		Address:  fmt.Sprintf("http://%s", ln.Addr()),
+		Bridge:   bridgeName,
+	}
+	var ctl *control.Server
+	if *controlPath != "" {
+		if cln, err := control.Listen(*controlPath); err != nil {
+			fmt.Printf("Menu bar control off: %v.\n", err)
+		} else {
+			ctl = &control.Server{Session: sess, Logger: logger}
+			go func() {
+				if err := ctl.Serve(ctx, cln); err != nil {
+					logger.Printf("control: %v", err)
+				}
+			}()
+			go func() {
+				for {
+					select {
+					case <-ctx.Done():
+						return
+					case <-reg.Changes():
+						ctl.Changed()
+					}
+				}
+			}()
+		}
+	}
+
 	if svc.Kind == config.KindJellyfin && !*noDiscovery {
 		startDiscovery(ctx, reg, svc, bindAddr, info, bridgeName, logger)
 	}
@@ -179,10 +215,14 @@ func cmdShare(args []string, checkOnly bool) error {
 	}
 
 	fmt.Printf("\nSharing %s as http://%s:%d until %s (Ctrl-C to stop).\n",
-		svc.Name, bindAddr, svc.Port, time.Now().Add(*ttl).Format("15:04"))
-	fmt.Println("New devices must be approved here; their screen shows the same pairing code.")
+		svc.Name, bindAddr, svc.Port, sess.until().Format("15:04"))
+	if ctl != nil {
+		fmt.Println("New devices must be approved here or in the menu bar app; their screen shows the same pairing code.")
+	} else {
+		fmt.Println("New devices must be approved here; their screen shows the same pairing code.")
+	}
 
-	go console(ctx, reg)
+	go console(ctx, reg, ctl != nil)
 	<-ctx.Done()
 
 	fmt.Println("\nStopping: sharing session over.")
@@ -313,8 +353,58 @@ func startDiscovery(ctx context.Context, reg *pairing.Registry, svc *config.Serv
 	fmt.Printf("Answering Jellyfin discovery on UDP %d.\n", discovery.Port)
 }
 
-// console asks the operator about each new device on stdin.
-func console(ctx context.Context, reg *pairing.Registry) {
+// session is the running share as the control socket sees it.
+type session struct {
+	reg    *pairing.Registry
+	cancel context.CancelFunc
+	timer  *time.Timer
+	// status is set once the listener is up; Until and Devices are filled in on read.
+	status control.Status
+
+	mu       sync.Mutex
+	deadline time.Time
+}
+
+func newSession(reg *pairing.Registry, ttl time.Duration, cancel context.CancelFunc) *session {
+	return &session{reg: reg, cancel: cancel, timer: time.AfterFunc(ttl, cancel), deadline: time.Now().Add(ttl)}
+}
+
+func (s *session) until() time.Time {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.deadline
+}
+
+func (s *session) Status() control.Status {
+	st := s.status
+	st.Until = s.until()
+	st.Devices = []control.Device{}
+	for _, d := range s.reg.Devices() {
+		st.Devices = append(st.Devices, control.Device{
+			IP: d.IP.String(), Code: d.Code, State: d.State.String(), Hint: d.Hint, FirstSeen: d.FirstSeen,
+		})
+	}
+	return st
+}
+
+func (s *session) Decide(ip netip.Addr, approve bool) bool { return s.reg.Decide(ip, approve) }
+
+func (s *session) Extend(d time.Duration) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.timer.Stop() {
+		return // already over
+	}
+	s.deadline = s.deadline.Add(d)
+	s.timer.Reset(time.Until(s.deadline))
+	fmt.Printf("Extended: sharing until %s.\n", s.deadline.Format("15:04"))
+}
+
+func (s *session) Stop() { s.cancel() }
+
+// console asks the operator about each new device on stdin. With a front end attached
+// (menu bar app) a device may be decided there instead, which ends the question here.
+func console(ctx context.Context, reg *pairing.Registry, frontEnd bool) {
 	lines := make(chan string)
 	go func() {
 		sc := bufio.NewScanner(os.Stdin)
@@ -335,18 +425,30 @@ func console(ctx context.Context, reg *pairing.Registry) {
 			hint = " (" + d.Hint + ")"
 		}
 		if lines == nil {
-			fmt.Printf("Device %s%s wants access, code %s: no terminal to approve it, restart with --allow %s.\n",
-				d.IP, hint, d.Code, d.IP)
+			if frontEnd {
+				fmt.Printf("Device %s%s wants access, code %s: approve it in the menu bar app.\n", d.IP, hint, d.Code)
+			} else {
+				fmt.Printf("Device %s%s wants access, code %s: no terminal to approve it, restart with --allow %s.\n",
+					d.IP, hint, d.Code, d.IP)
+			}
 			continue
 		}
 		fmt.Printf("\nDevice %s%s wants access. Pairing code %s. Allow? [y/N] ", d.IP, hint, d.Code)
 		select {
 		case <-ctx.Done():
 			return
+		case <-reg.Decided(d.IP):
+			state, _ := reg.Check(d.IP, "")
+			fmt.Printf("%s from the menu bar app.\n", map[pairing.State]string{
+				pairing.Approved: "Allowed", pairing.Denied: "Denied"}[state])
 		case line, ok := <-lines:
 			if !ok {
 				lines = nil
-				fmt.Println("\nstdin closed; new devices can only be pre-approved with --allow.")
+				if frontEnd {
+					fmt.Println("\nNo terminal input: approve devices in the menu bar app.")
+				} else {
+					fmt.Println("\nstdin closed; new devices can only be pre-approved with --allow.")
+				}
 				continue
 			}
 			yes := strings.EqualFold(strings.TrimSpace(line), "y") || strings.EqualFold(strings.TrimSpace(line), "yes")

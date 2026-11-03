@@ -52,6 +52,7 @@ type Registry struct {
 	mu       sync.Mutex
 	devices  map[netip.Addr]*Device
 	requests chan Device
+	changes  chan struct{}
 	now      func() time.Time
 }
 
@@ -61,12 +62,24 @@ func New() *Registry {
 		Hold:     25 * time.Second,
 		devices:  map[netip.Addr]*Device{},
 		requests: make(chan Device, 16),
+		changes:  make(chan struct{}, 1),
 		now:      time.Now,
 	}
 }
 
 // Requests delivers each new pending device once, for the operator to decide on.
 func (r *Registry) Requests() <-chan Device { return r.requests }
+
+// Changes receives a value after devices were added or decided. Several changes may be
+// coalesced into one: read Devices for the current state.
+func (r *Registry) Changes() <-chan struct{} { return r.changes }
+
+func (r *Registry) changed() {
+	select {
+	case r.changes <- struct{}{}:
+	default:
+	}
+}
 
 // Allow pre-approves ip.
 func (r *Registry) Allow(ip netip.Addr) {
@@ -75,6 +88,7 @@ func (r *Registry) Allow(ip netip.Addr) {
 	d := r.get(ip.Unmap(), "")
 	d.queued = true
 	setState(d, Approved)
+	r.changed()
 }
 
 // Decide approves or denies ip. It returns false if ip never showed up.
@@ -90,6 +104,7 @@ func (r *Registry) Decide(ip netip.Addr, approve bool) bool {
 	} else {
 		setState(d, Denied)
 	}
+	r.changed()
 	return true
 }
 
@@ -100,8 +115,8 @@ func setState(d *Device, s State) {
 	d.State = s
 }
 
-// decided returns a channel closed once ip is approved or denied.
-func (r *Registry) decided(ip netip.Addr) <-chan struct{} {
+// Decided returns a channel closed once ip is approved or denied, from any front end.
+func (r *Registry) Decided(ip netip.Addr) <-chan struct{} {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return r.get(ip.Unmap(), "").decided
@@ -149,6 +164,7 @@ func (r *Registry) get(ip netip.Addr, hint string) *Device {
 		d = &Device{IP: ip, Code: newCode(), State: Pending, FirstSeen: r.now(), Hint: hint,
 			decided: make(chan struct{})}
 		r.devices[ip] = d
+		r.changed()
 	}
 	return d
 }
@@ -179,7 +195,7 @@ func (r *Registry) Middleware(bridgeName string, public func(*http.Request) bool
 			// Wait for the operator, so approving lets this very request through.
 			timer := time.NewTimer(r.Hold)
 			select {
-			case <-r.decided(ap.Addr()):
+			case <-r.Decided(ap.Addr()):
 			case <-req.Context().Done():
 			case <-timer.C:
 			}

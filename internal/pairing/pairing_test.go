@@ -165,3 +165,31 @@ func TestPendingRequestWaitsForTheDecision(t *testing.T) {
 		t.Errorf("no decision: %d, want 503 after Hold", code)
 	}
 }
+
+func TestChangesAndDecided(t *testing.T) {
+	r := New()
+	ip := netip.MustParseAddr("192.168.1.50")
+	r.Check(ip, "TV")
+	select {
+	case <-r.Changes():
+	default:
+		t.Fatal("no change for a new device")
+	}
+	decided := r.Decided(ip)
+	select {
+	case <-decided:
+		t.Fatal("decided before the operator answered")
+	default:
+	}
+	r.Decide(ip, true)
+	select {
+	case <-decided:
+	default:
+		t.Fatal("Decided not closed after approval")
+	}
+	select {
+	case <-r.Changes():
+	default:
+		t.Fatal("no change for a decision")
+	}
+}

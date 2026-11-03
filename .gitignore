@@ -3,3 +3,4 @@
 internal/trust/roots/*
 !internal/trust/roots/README.md
 .DS_Store
+/macos/.build/
