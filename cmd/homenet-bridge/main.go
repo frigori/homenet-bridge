@@ -94,13 +94,16 @@ func cmdShare(args []string, checkOnly bool) error {
 	var allow, caFiles multiFlag
 	fs.Var(&allow, "allow", "pre-approve a device IP (repeatable)")
 	fs.Var(&caFiles, "ca-file", "extra PEM root to trust for the upstream (repeatable)")
-	fs.Parse(args)
+	service, err := parseArgs(fs, args)
+	if err != nil {
+		return err
+	}
 
 	cfg, err := config.Load(*cfgPath)
 	if err != nil {
 		return err
 	}
-	svc, err := pickService(cfg, fs.Arg(0), *upstream, *port, *kind)
+	svc, err := pickService(cfg, service, *upstream, *port, *kind)
 	if err != nil {
 		return err
 	}
@@ -229,6 +232,25 @@ func cmdShare(args []string, checkOnly bool) error {
 	shutCtx, shutCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer shutCancel()
 	return srv.Shutdown(shutCtx)
+}
+
+// parseArgs parses flags before and after the optional service name: the flag package
+// alone stops at the first non-flag, silently ignoring "share jellyfin --for 1h".
+func parseArgs(fs *flag.FlagSet, args []string) (service string, err error) {
+	if err := fs.Parse(args); err != nil {
+		return "", err
+	}
+	if fs.NArg() == 0 {
+		return "", nil
+	}
+	service = fs.Arg(0)
+	if err := fs.Parse(fs.Args()[1:]); err != nil {
+		return "", err
+	}
+	if fs.NArg() > 0 {
+		return "", fmt.Errorf("unexpected arguments after %q: %s", service, strings.Join(fs.Args(), " "))
+	}
+	return service, nil
 }
 
 func cmdTrust(args []string) error {

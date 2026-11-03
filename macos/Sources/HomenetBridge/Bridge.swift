@@ -213,7 +213,8 @@ final class BridgeRunner {
 
         let p = Process()
         p.executableURL = bin
-        p.arguments = ["share", service, "--for", "\(hours)h", "--control", Paths.controlSocket]
+        // Flags before the service: older CLIs ignore flags after it.
+        p.arguments = ["share", "--for", "\(hours)h", "--control", Paths.controlSocket, service]
         p.standardInput = FileHandle.nullDevice
         p.standardOutput = log
         p.standardError = log
