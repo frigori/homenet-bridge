@@ -3,13 +3,17 @@ name: Release
 on:
   push:
     tags: ["v*"]
+    # Dry run: pushing a branch named release-check builds everything, publishes nothing,
+    # and uploads the result as a workflow artifact.
+    branches: [release-check]
 
 permissions:
   contents: write
 
 jobs:
   release:
-    runs-on: ubuntu-latest
+    # macOS for the menu bar app (Swift, Xcode); GoReleaser cross-builds the rest from here.
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v5
         with:
@@ -18,12 +22,33 @@ jobs:
         with:
           go-version-file: go.mod
       - run: go test ./...
+      - name: Menu bar app
+        run: |
+          version=${GITHUB_REF_NAME#v}
+          [ "$GITHUB_REF_TYPE" = tag ] || version=0.0.0
+          for arch in arm64 amd64; do
+            CGO_ENABLED=0 GOOS=darwin GOARCH=$arch go build -trimpath \
+              -ldflags "-s -w -X main.version=$version" -o "bin/cli-$arch" ./cmd/homenet-bridge
+          done
+          lipo -create -output bin/homenet-bridge-darwin bin/cli-arm64 bin/cli-amd64
+          UNIVERSAL=1 macos/build-app.sh bin/homenet-bridge-darwin "$version" build
+          (cd build && ditto -c -k --keepParent HomenetBridge.app "HomenetBridge_${version}_macos.zip")
       - uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
           version: "~> v2"
-          args: release --clean
+          args: ${{ github.ref_type == 'tag' && 'release --clean' || 'release --snapshot --clean' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Fine-grained token with Contents read/write on frigori/homebrew-tap only.
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+      - if: github.ref_type != 'tag'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-check
+          path: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/checksums.txt
+            dist/homebrew/Casks/*.rb
+            build/*.zip

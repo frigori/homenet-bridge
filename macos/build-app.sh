@@ -1,6 +1,7 @@
 #!/bin/sh
 # Assembles HomenetBridge.app: the menu bar app, with the homenet-bridge CLI inside it.
 # Usage: macos/build-app.sh <homenet-bridge darwin binary> <version> <output dir>
+# UNIVERSAL=1 builds for arm64 and x86_64 (needs Xcode, not only the command line tools).
 set -eu
 
 cli=$1
@@ -8,8 +9,14 @@ version=$2
 out=$3
 root=$(cd "$(dirname "$0")/.." && pwd)
 
-(cd "$root/macos" && swift build -c release)
-bin=$(cd "$root/macos" && swift build -c release --show-bin-path)/HomenetBridge
+archs=
+if [ "${UNIVERSAL:-}" = 1 ]; then
+	archs="--arch arm64 --arch x86_64"
+fi
+# shellcheck disable=SC2086 # archs is a list of flags
+(cd "$root/macos" && swift build -c release $archs)
+# shellcheck disable=SC2086
+bin=$(cd "$root/macos" && swift build -c release $archs --show-bin-path)/HomenetBridge
 
 app=$out/HomenetBridge.app
 rm -rf "$app"

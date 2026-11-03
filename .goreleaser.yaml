@@ -2,10 +2,20 @@ version: 2
 
 project_name: homenet-bridge
 
+# Separate builds for macOS, so only its archives carry the menu bar app.
 builds:
-  - main: ./cmd/homenet-bridge
+  - id: darwin
+    main: ./cmd/homenet-bridge
     env: [CGO_ENABLED=0]
-    goos: [darwin, linux, windows]
+    goos: [darwin]
+    goarch: [amd64, arm64]
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+    flags: [-trimpath]
+  - id: others
+    main: ./cmd/homenet-bridge
+    env: [CGO_ENABLED=0]
+    goos: [linux, windows]
     goarch: [amd64, arm64]
     ignore:
       - { goos: windows, goarch: arm64 }
@@ -14,7 +24,21 @@ builds:
     flags: [-trimpath]
 
 archives:
-  - formats: [tar.gz]
+  # build/HomenetBridge.app is built by the release workflow before GoReleaser runs
+  # (macos/build-app.sh), with a universal CLI inside.
+  - id: darwin
+    ids: [darwin]
+    formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - README.md
+      - LICENSE
+      - config.example.json
+      - src: build/HomenetBridge.app
+        dst: HomenetBridge.app
+  - id: others
+    ids: [others]
+    formats: [tar.gz]
     format_overrides:
       - { goos: windows, formats: [zip] }
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
@@ -38,6 +62,13 @@ nfpms:
 
 checksum:
   name_template: checksums.txt
+  extra_files:
+    - glob: build/HomenetBridge_*_macos.zip
+
+release:
+  # The app alone, for people who don't use Homebrew.
+  extra_files:
+    - glob: build/HomenetBridge_*_macos.zip
 
 changelog:
   sort: asc
@@ -56,13 +87,18 @@ homebrew_casks:
     commit_author:
       name: goreleaserbot
       email: bot@goreleaser.com
-    # The binary is not notarized: without this, Gatekeeper refuses to run it.
+    # The binary and the app are not notarized: without this, Gatekeeper refuses to run them.
     # Homebrew 7 deprecates `postflight` (what `hooks` generates) for the sandboxed
     # `postflight_steps`, which GoReleaser has no option for yet. The {{ "{{" }} escape keeps
     # Homebrew's {{staged_path}} placeholder out of GoReleaser's own templating.
     custom_block: |
+      on_macos do
+        app "HomenetBridge.app"
+      end
+
       postflight_steps do
         on_macos do
           run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ "{{" }}staged_path}}/homenet-bridge"]
+          run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ "{{" }}appdir}}/HomenetBridge.app"]
         end
       end
