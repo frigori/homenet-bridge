@@ -3,7 +3,7 @@ LDFLAGS := -s -w -X main.version=$(VERSION)
 # No local Go? `make GO="docker run --rm -v $$PWD:/src -w /src golang:1.25-alpine go" test`
 GO ?= go
 
-.PHONY: build test vet dist app clean
+.PHONY: build test vet dist app aar clean
 
 build:
 	$(GO) build -ldflags "$(LDFLAGS)" -o bin/homenet-bridge ./cmd/homenet-bridge
@@ -33,5 +33,14 @@ app:
 	fi
 	macos/build-app.sh $(or $(CLI),bin/homenet-bridge-darwin) $(VERSION:v%=%) dist
 
+# The Android library (mobile/), for the Android app. Needs the Android SDK and NDK
+# (ANDROID_HOME, ANDROID_NDK_HOME) and a JDK.
+# gomobile and gobind are pinned in go.mod; gomobile looks for gobind on the PATH.
+aar:
+	GOBIN=$(CURDIR)/build/tools $(GO) install golang.org/x/mobile/cmd/gomobile golang.org/x/mobile/cmd/gobind
+	PATH="$(CURDIR)/build/tools:$$PATH" gomobile init
+	PATH="$(CURDIR)/build/tools:$$PATH" gomobile bind -target=android/arm64,android/amd64 -androidapi 24 \
+		-javapkg io.github.frigori.homenetbridge -ldflags "$(LDFLAGS)" -o build/homenet-bridge.aar ./mobile
+
 clean:
-	rm -rf bin dist macos/.build
+	rm -rf bin dist build macos/.build
