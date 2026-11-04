@@ -38,7 +38,6 @@ app:
 # gomobile and gobind are pinned in go.mod; gomobile looks for gobind on the PATH.
 aar:
 	GOBIN=$(CURDIR)/build/tools $(GO) install golang.org/x/mobile/cmd/gomobile golang.org/x/mobile/cmd/gobind
-	PATH="$(CURDIR)/build/tools:$$PATH" gomobile init
 	PATH="$(CURDIR)/build/tools:$$PATH" gomobile bind -target=android/arm64,android/amd64 -androidapi 24 \
 		-javapkg io.github.frigori.homenetbridge -ldflags "$(LDFLAGS)" -o build/homenet-bridge.aar ./mobile
 
